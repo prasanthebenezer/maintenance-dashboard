@@ -558,7 +558,13 @@ function renderLineAvailabilityChart(data, site, startDate, endDate, line) {
                     ticks: { font: { size: 12, weight: 'bold' } }
                 },
                 y: {
-                    min: 85, max: 100,
+                    min: (() => {
+                        const dataVals = datasets.slice(0, -1).flatMap(ds => ds.data).filter(v => v != null);
+                        if (!dataVals.length) return 85;
+                        const minVal = Math.min(...dataVals);
+                        return Math.max(0, Math.floor(minVal / 5) * 5 - 5);
+                    })(),
+                    max: 100,
                     ticks: { callback: v => v + '%' }
                 }
             }
