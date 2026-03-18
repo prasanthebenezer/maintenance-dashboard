@@ -18,11 +18,20 @@ from contextlib import contextmanager
 from typing import Optional
 import tempfile
 import subprocess
+import os
 
 BASE_DIR = Path(__file__).parent
-DB_PATH = BASE_DIR / "dashboard.db"
+DB_PATH = Path(os.environ.get("DB_PATH", str(BASE_DIR / "dashboard.db")))
 
 app = FastAPI(title="ARASCO Dashboard API")
+
+
+@app.on_event("startup")
+def ensure_database():
+    if not DB_PATH.exists():
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        import convert_db
+        convert_db.create_tables_only(str(DB_PATH))
 
 
 # Prevent browser caching of HTML pages so nav changes are always fresh
