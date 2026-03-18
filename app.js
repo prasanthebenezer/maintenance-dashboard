@@ -327,14 +327,13 @@ function updateLineDisplay() {
 }
 
 function filterByAll(arr, site, startDate, endDate, line) {
+    const endOfDay = endDate ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999) : null;
     return arr.filter(r => {
         const siteMatch = site === 'All' || r._site === site;
         let dateMatch = true;
         if (startDate && r._date) dateMatch = r._date >= startDate;
         else if (startDate && !r._date) dateMatch = false;
-        if (dateMatch && endDate && r._date) {
-            const endOfDay = new Date(endDate);
-            endOfDay.setHours(23, 59, 59, 999);
+        if (dateMatch && endOfDay && r._date) {
             dateMatch = r._date <= endOfDay;
         } else if (endDate && !r._date) dateMatch = false;
         let lineMatch = true;
@@ -357,14 +356,13 @@ function filterByAll(arr, site, startDate, endDate, line) {
 
 // For data without _line (spareParts, siteMaintenance, rca) — filter by site + date only
 function filterBySiteAndDate(arr, site, startDate, endDate) {
+    const endOfDay = endDate ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999) : null;
     return arr.filter(r => {
         const siteMatch = site === 'All' || r._site === site;
         let dateMatch = true;
         if (startDate && r._date) dateMatch = r._date >= startDate;
         else if (startDate && !r._date) dateMatch = false;
-        if (dateMatch && endDate && r._date) {
-            const endOfDay = new Date(endDate);
-            endOfDay.setHours(23, 59, 59, 999);
+        if (dateMatch && endOfDay && r._date) {
             dateMatch = r._date <= endOfDay;
         } else if (endDate && !r._date) dateMatch = false;
         return siteMatch && dateMatch;
@@ -399,9 +397,9 @@ function getMostRecentDate(data) {
 
 // ─── KPI Calculations ───────────────────────────────────
 
-function renderKPIs(data, site, startDate, endDate, line) {
+function renderKPIs(f) {
+    const { lp: lpData, sp: spData, sm: smData, site, sd: startDate, ed: endDate } = f;
     // Line Availability
-    const lpData = filterByAll(data.linePerformance, site, startDate, endDate, line);
     let running = 0, downE = 0, downM = 0, downU = 0;
     lpData.forEach(r => {
         running += num(col(r, 'Running_Time'));
@@ -420,8 +418,7 @@ function renderKPIs(data, site, startDate, endDate, line) {
         laVal.className = 'kpi-value';
     }
 
-    // Spare Parts Cost — filter by month overlap, not exact dates
-    const spData = filterSPByMonth(data.spareParts, site, startDate, endDate);
+    // Spare Parts Cost
     const spVal = document.getElementById('kpi-sp-value');
     const spSub = document.getElementById('kpi-sp-sub');
     if (spData.length > 0) {
@@ -448,8 +445,7 @@ function renderKPIs(data, site, startDate, endDate, line) {
         spSub.textContent = '';
     }
 
-    // PM Completion Rate — filter by month overlap
-    const smData = filterSPByMonth(data.siteMaintenance, site, startDate, endDate);
+    // PM Completion Rate
     const pmVal = document.getElementById('kpi-pm-value');
     const pmSub = document.getElementById('kpi-pm-sub');
     if (smData.length > 0) {
@@ -474,13 +470,12 @@ function renderKPIs(data, site, startDate, endDate, line) {
         pmSub.textContent = '';
     }
 
-    // Corrective Tasks — filter by month overlap
-    const ctData = filterSPByMonth(data.siteMaintenance, site, startDate, endDate);
+    // Corrective Tasks
     const ctVal = document.getElementById('kpi-ct-value');
     const ctSub = document.getElementById('kpi-ct-sub');
-    if (ctData.length > 0) {
+    if (smData.length > 0) {
         let totalTasks = 0;
-        ctData.forEach(r => { totalTasks += num(col(r, 'Corrective_tasks', 'Corrective')); });
+        smData.forEach(r => { totalTasks += num(col(r, 'Corrective_tasks', 'Corrective')); });
         ctVal.textContent = formatNum(totalTasks);
         ctVal.className = 'kpi-value';
         const dateLabel = startDate && endDate ? `${toISODate(startDate)} to ${toISODate(endDate)}` : 'All dates';
@@ -494,11 +489,12 @@ function renderKPIs(data, site, startDate, endDate, line) {
 
 // ─── Line Availability Chart ────────────────────────────
 
-function renderLineAvailabilityChart(data, site, startDate, endDate, line) {
+function renderLineAvailabilityChart(f) {
     destroyChart('lineAvailability');
     const ctx = document.getElementById('chart-line-availability').getContext('2d');
 
-    const lpData = filterByAll(data.linePerformance, site, startDate, endDate, line);
+    const lpData = f.lp;
+    const site = f.site;
     const months = [...new Set(lpData.map(r => r._month).filter(Boolean))].sort(monthSort);
     const sites = site === 'All' ? [...new Set(lpData.map(r => r._site).filter(Boolean))] : [site];
 
@@ -574,11 +570,11 @@ function renderLineAvailabilityChart(data, site, startDate, endDate, line) {
 
 // ─── Downtime by Type Pie Chart ─────────────────────────
 
-function renderDowntimePieChart(data, site, startDate, endDate, line) {
+function renderDowntimePieChart(f) {
     destroyChart('downtimePie');
     const ctx = document.getElementById('chart-downtime-type').getContext('2d');
 
-    let lpData = filterByAll(data.linePerformance, site, startDate, endDate, line);
+    let lpData = f.lp.slice();
 
     // Check if cross-filter is active on a breakdown line
     const af = dashboardState.activeFilter;
@@ -631,9 +627,10 @@ function renderDowntimePieChart(data, site, startDate, endDate, line) {
 
 // ─── RCA Status Table ───────────────────────────────────
 
-function renderRCATable(data, site, startDate, endDate) {
+function renderRCATable(f) {
     const container = document.getElementById('rca-table-container');
-    const rcaData = filterBySiteAndDate(data.rca, site, startDate, endDate);
+    const rcaData = f.rca;
+    const site = f.site;
 
     const sites = site === 'All' ? [...new Set(rcaData.map(r => r._site).filter(Boolean))].sort() : [site];
 
@@ -687,9 +684,8 @@ function renderRCATable(data, site, startDate, endDate) {
 
 // ─── Breakdown Lines Bar Chart ──────────────────────────
 
-function getBreakdownByLine(data, site, startDate, endDate, line) {
-    const bd = filterByAll(data.breakdown, site, startDate, endDate, line)
-        .filter(r => (col(r, 'Maintenance_Issue', 'Maintenance Issue') || 'Y').toUpperCase() !== 'N');
+function getBreakdownByLine(bdData, site) {
+    const bd = bdData.filter(r => (col(r, 'Maintenance_Issue', 'Maintenance Issue') || 'Y').toUpperCase() !== 'N');
     const agg = {};
     bd.forEach(r => {
         const lineId = col(r, 'Line_ID');
@@ -703,20 +699,20 @@ function getBreakdownByLine(data, site, startDate, endDate, line) {
         .sort((a, b) => b.value - a.value);
 }
 
-function renderBreakdownLinesChart(data, site, startDate, endDate, line) {
+function renderBreakdownLinesChart(f) {
     destroyChart('breakdownLines');
     const ctx = document.getElementById('chart-breakdown-lines').getContext('2d');
+    const site = f.site;
 
-    let items = getBreakdownByLine(data, site, startDate, endDate, line);
+    let items = getBreakdownByLine(f.bd, site);
     const topN = dashboardState.topN.breakdownLines;
     if (topN !== 'all') items = items.slice(0, parseInt(topN));
 
     const af = dashboardState.activeFilter;
     const bgColors = items.map((item, i) => {
         if (af.type === 'equipment' && af.value) {
-            const bd = filterByAll(data.breakdown, site, startDate, endDate, line);
             const eqId = af.value;
-            const hasEquip = bd.some(r => {
+            const hasEquip = f.bd.some(r => {
                 const lineKey = site === 'All' ? `${r._site}_${col(r, 'Line_ID')}` : col(r, 'Line_ID');
                 return lineKey === item.label && col(r, 'Equipment_ID') === eqId;
             });
@@ -775,9 +771,8 @@ function renderBreakdownLinesChart(data, site, startDate, endDate, line) {
 
 // ─── Breakdown Equipments Bar Chart ─────────────────────
 
-function getBreakdownByEquipment(data, site, startDate, endDate, line) {
-    const bd = filterByAll(data.breakdown, site, startDate, endDate, line)
-        .filter(r => (col(r, 'Maintenance_Issue', 'Maintenance Issue') || 'Y').toUpperCase() !== 'N');
+function getBreakdownByEquipment(bdData) {
+    const bd = bdData.filter(r => (col(r, 'Maintenance_Issue', 'Maintenance Issue') || 'Y').toUpperCase() !== 'N');
     const agg = {};
     bd.forEach(r => {
         const eqId = col(r, 'Equipment_ID') || 'Unknown';
@@ -789,20 +784,20 @@ function getBreakdownByEquipment(data, site, startDate, endDate, line) {
         .sort((a, b) => b.value - a.value);
 }
 
-function renderBreakdownEquipmentsChart(data, site, startDate, endDate, line) {
+function renderBreakdownEquipmentsChart(f) {
     destroyChart('breakdownEquipments');
     const ctx = document.getElementById('chart-breakdown-equipments').getContext('2d');
+    const site = f.site;
 
-    let items = getBreakdownByEquipment(data, site, startDate, endDate, line);
+    let items = getBreakdownByEquipment(f.bd);
     const topN = dashboardState.topN.breakdownEquipments;
     if (topN !== 'all') items = items.slice(0, parseInt(topN));
 
     const af = dashboardState.activeFilter;
     const bgColors = items.map((item, i) => {
         if (af.type === 'line' && af.value) {
-            const bd = filterByAll(data.breakdown, site, startDate, endDate, line);
             const lineVal = af.value;
-            const hasLine = bd.some(r => {
+            const hasLine = f.bd.some(r => {
                 const lineKey = site === 'All' ? `${r._site}_${col(r, 'Line_ID')}` : col(r, 'Line_ID');
                 return lineKey === lineVal && (col(r, 'Equipment_ID') || 'Unknown') === item.label;
             });
@@ -859,11 +854,12 @@ function renderBreakdownEquipmentsChart(data, site, startDate, endDate, line) {
 
 // ─── Breakdown Duration Trend (Scatter) ─────────────────
 
-function renderDurationTrendChart(data, site, startDate, endDate, line) {
+function renderDurationTrendChart(f) {
     destroyChart('durationTrend');
     const ctx = document.getElementById('chart-duration-trend').getContext('2d');
+    const site = f.site;
 
-    let bd = filterByAll(data.breakdown, site, startDate, endDate, line);
+    let bd = f.bd.slice();
 
     const af = dashboardState.activeFilter;
     if (af.type === 'line' && af.value) {
@@ -971,9 +967,10 @@ function parseLabelDate(label, level) {
 
 // ─── Spare Parts Cost Table ─────────────────────────────
 
-function renderSPCostTable(data, site, startDate, endDate) {
+function renderSPCostTable(f) {
     const container = document.getElementById('sp-cost-table-container');
-    const spData = filterSPByMonth(data.spareParts, site, startDate, endDate);
+    const spData = f.sp;
+    const site = f.site;
     const sites = site === 'All' ? [...new Set(spData.map(r => r._site).filter(Boolean))].sort() : [site];
 
     let html = '<table class="data-table"><thead><tr><th>Site</th><th>Actual</th><th>Budget</th><th>Variance</th><th>Status</th></tr></thead><tbody>';
@@ -1017,11 +1014,11 @@ function renderSPCostTable(data, site, startDate, endDate) {
 
 // ─── Spare Parts Cost Trend Chart ───────────────────────
 
-function renderSPCostTrendChart(data, site, startDate, endDate) {
+function renderSPCostTrendChart(f) {
     destroyChart('spCostTrend');
     const ctx = document.getElementById('chart-sp-cost-trend').getContext('2d');
 
-    const spData = filterSPByMonth(data.spareParts, site, startDate, endDate);
+    const spData = f.sp;
     const months = [...new Set(spData.map(r => r._month).filter(Boolean))].sort(monthSort);
 
     const budgetByMonth = {}, actualByMonth = {};
@@ -1142,11 +1139,11 @@ function handleBarClick(event, elements, type, items) {
 }
 
 function refreshCrossFilteredCharts() {
-    const { rawData, selectedSite, startDate, endDate, selectedLine } = dashboardState;
-    renderBreakdownLinesChart(rawData, selectedSite, startDate, endDate, selectedLine);
-    renderBreakdownEquipmentsChart(rawData, selectedSite, startDate, endDate, selectedLine);
-    renderDurationTrendChart(rawData, selectedSite, startDate, endDate, selectedLine);
-    renderDowntimePieChart(rawData, selectedSite, startDate, endDate, selectedLine);
+    const f = buildFilteredData();
+    renderBreakdownLinesChart(f);
+    renderBreakdownEquipmentsChart(f);
+    renderDurationTrendChart(f);
+    renderDowntimePieChart(f);
 }
 
 // ─── Drill-Through (Context Menu + Modal) ───────────────
@@ -1240,8 +1237,7 @@ function drillUp() {
     const idx = DRILL_LEVELS.indexOf(dashboardState.drillLevel);
     if (idx > 0) {
         dashboardState.drillLevel = DRILL_LEVELS[idx - 1];
-        const { rawData, selectedSite, startDate, endDate, selectedLine } = dashboardState;
-        renderDurationTrendChart(rawData, selectedSite, startDate, endDate, selectedLine);
+        renderDurationTrendChart(buildFilteredData());
     }
 }
 
@@ -1249,34 +1245,45 @@ function drillDown() {
     const idx = DRILL_LEVELS.indexOf(dashboardState.drillLevel);
     if (idx < DRILL_LEVELS.length - 1) {
         dashboardState.drillLevel = DRILL_LEVELS[idx + 1];
-        const { rawData, selectedSite, startDate, endDate, selectedLine } = dashboardState;
-        renderDurationTrendChart(rawData, selectedSite, startDate, endDate, selectedLine);
+        renderDurationTrendChart(buildFilteredData());
     }
 }
 
 // ─── Full Render ────────────────────────────────────────
 
-function renderAll() {
+function buildFilteredData() {
     const data = dashboardState.rawData;
     const site = dashboardState.selectedSite;
     const sd = dashboardState.startDate;
     const ed = dashboardState.endDate;
     const line = dashboardState.selectedLine;
+    return {
+        lp: filterByAll(data.linePerformance, site, sd, ed, line),
+        bd: filterByAll(data.breakdown, site, sd, ed, line),
+        sp: filterSPByMonth(data.spareParts, site, sd, ed),
+        sm: filterSPByMonth(data.siteMaintenance, site, sd, ed),
+        rca: filterBySiteAndDate(data.rca, site, sd, ed),
+        site, sd, ed, line
+    };
+}
 
+function renderAll() {
     // Clear cross-filter on full re-render
     dashboardState.activeFilter = { type: null, value: null };
     dashboardState.drillLevel = 'month';
 
+    const f = buildFilteredData();
+
     destroyAllCharts();
-    renderKPIs(data, site, sd, ed, line);
-    renderLineAvailabilityChart(data, site, sd, ed, line);
-    renderDowntimePieChart(data, site, sd, ed, line);
-    renderRCATable(data, site, sd, ed);
-    renderBreakdownLinesChart(data, site, sd, ed, line);
-    renderDurationTrendChart(data, site, sd, ed, line);
-    renderSPCostTable(data, site, sd, ed);
-    renderBreakdownEquipmentsChart(data, site, sd, ed, line);
-    renderSPCostTrendChart(data, site, sd, ed);
+    renderKPIs(f);
+    renderLineAvailabilityChart(f);
+    renderDowntimePieChart(f);
+    renderRCATable(f);
+    renderBreakdownLinesChart(f);
+    renderDurationTrendChart(f);
+    renderSPCostTable(f);
+    renderBreakdownEquipmentsChart(f);
+    renderSPCostTrendChart(f);
 }
 
 // ─── Event Listeners ────────────────────────────────────
@@ -1342,13 +1349,13 @@ function setupEventListeners() {
             btn.classList.add('active');
             const val = btn.dataset.value;
             const target = group.id;
-            const { rawData, selectedSite, startDate, endDate, selectedLine } = dashboardState;
+            const ff = buildFilteredData();
             if (target === 'toggle-breakdown-lines') {
                 dashboardState.topN.breakdownLines = val;
-                renderBreakdownLinesChart(rawData, selectedSite, startDate, endDate, selectedLine);
+                renderBreakdownLinesChart(ff);
             } else if (target === 'toggle-breakdown-equipments') {
                 dashboardState.topN.breakdownEquipments = val;
-                renderBreakdownEquipmentsChart(rawData, selectedSite, startDate, endDate, selectedLine);
+                renderBreakdownEquipmentsChart(ff);
             }
         });
     });
