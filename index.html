@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARASCO Maintenance Monitor</title>
+    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SheetJS removed — data now served via API -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-green-stripe"></div>
+        <div class="sidebar-content">
+            <div class="sidebar-logo" id="sidebar-logo">
+                <img src="ARASCO.png" class="logo-img" alt="ARASCO Logo">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/index.html" class="active"><i class="fas fa-chart-bar"></i> Dashboard</a>
+                <a href="/admin"><i class="fas fa-database"></i> Admin</a>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-title-row">
+                <h1 class="dashboard-title">ARASCO Maintenance Monitor</h1>
+                <span class="data-updated" id="data-updated">Data updated: --/--/--</span>
+            </div>
+            <div class="header-filters">
+                <div class="filter-group">
+                    <label for="plant-filter">Plant</label>
+                    <select id="plant-filter">
+                        <option value="All">All (Overall)</option>
+                        <option value="KFM">KFM</option>
+                        <option value="DFM">DFM</option>
+                        <option value="ARCHEM">ARCHEM</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Line</label>
+                    <div class="multi-select" id="line-filter">
+                        <div class="multi-select-display" id="line-display">All Lines</div>
+                        <div class="multi-select-dropdown hidden" id="line-dropdown">
+                            <label class="multi-select-item">
+                                <input type="checkbox" value="All" checked> All Lines
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label for="start-date">From</label>
+                    <input type="date" id="start-date" class="date-input">
+                </div>
+                <div class="filter-group">
+                    <label for="end-date">To</label>
+                    <input type="date" id="end-date" class="date-input">
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading indicator -->
+        <div id="loading" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p>Loading dashboard data...</p>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div id="dashboard-content" class="hidden">
+            <!-- KPI Row -->
+            <div class="kpi-row">
+                <div class="kpi-card" id="kpi-line-availability">
+                    <div class="kpi-label">Line Availability</div>
+                    <div class="kpi-value" id="kpi-la-value">--</div>
+                    <div class="kpi-sub">Target: 95%</div>
+                </div>
+                <div class="kpi-card" id="kpi-spare-parts">
+                    <div class="kpi-label">Spare Parts Cost</div>
+                    <div class="kpi-value" id="kpi-sp-value">--</div>
+                    <div class="kpi-sub" id="kpi-sp-sub"></div>
+                </div>
+                <div class="kpi-card" id="kpi-pm-rate">
+                    <div class="kpi-label">PM Completion Rate</div>
+                    <div class="kpi-value" id="kpi-pm-value">--</div>
+                    <div class="kpi-sub" id="kpi-pm-sub"></div>
+                </div>
+                <div class="kpi-card" id="kpi-corrective-tasks">
+                    <div class="kpi-label">Corrective Tasks</div>
+                    <div class="kpi-value" id="kpi-ct-value">--</div>
+                    <div class="kpi-sub" id="kpi-ct-sub"></div>
+                </div>
+            </div>
+
+            <!-- Row 2: Line Availability Chart | Downtime Pie | RCA Table -->
+            <div class="chart-row row-3col">
+                <div class="chart-card">
+                    <div class="card-title">Line Availability (%)</div>
+                    <div class="chart-wrapper"><canvas id="chart-line-availability"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-title">Downtime by Type</div>
+                    <div class="chart-wrapper"><canvas id="chart-downtime-type"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-title">RCA Status</div>
+                    <div class="table-wrapper" id="rca-table-container"></div>
+                </div>
+            </div>
+
+            <!-- Row 3: Breakdown Lines | Duration Trend | SP Cost Table -->
+            <div class="chart-row row-3col">
+                <div class="chart-card">
+                    <div class="card-title">
+                        All Breakdown Lines
+                        <div class="toggle-buttons" id="toggle-breakdown-lines">
+                            <button class="toggle-btn active" data-value="all">All</button>
+                            <button class="toggle-btn" data-value="5">Top 5</button>
+                            <button class="toggle-btn" data-value="10">Top 10</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper chart-wrapper-bar"><div class="bar-inner" id="bar-inner-lines"><canvas id="chart-breakdown-lines"></canvas></div></div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-title">
+                        Breakdown Duration Trend (Minutes)
+                        <div class="drill-buttons">
+                            <button class="drill-btn" id="drill-up" title="Drill Up"><i class="fas fa-chevron-up"></i></button>
+                            <button class="drill-btn" id="drill-down" title="Drill Down"><i class="fas fa-chevron-down"></i></button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper"><canvas id="chart-duration-trend"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-title">Spare Parts Cost</div>
+                    <div class="table-wrapper" id="sp-cost-table-container"></div>
+                </div>
+            </div>
+
+            <!-- Row 4: Breakdown Equipments | SP Cost Trend -->
+            <div class="chart-row row-2col">
+                <div class="chart-card">
+                    <div class="card-title">
+                        All Breakdown Equipments
+                        <div class="toggle-buttons" id="toggle-breakdown-equipments">
+                            <button class="toggle-btn active" data-value="all">All</button>
+                            <button class="toggle-btn" data-value="5">Top 5</button>
+                            <button class="toggle-btn" data-value="10">Top 10</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper chart-wrapper-bar"><div class="bar-inner" id="bar-inner-equipments"><canvas id="chart-breakdown-equipments"></canvas></div></div>
+                </div>
+                <div class="chart-card">
+                    <div class="card-title">Spare Parts Cost Trend</div>
+                    <div class="chart-wrapper"><canvas id="chart-sp-cost-trend"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Drill-through Modal -->
+    <div id="breakdown-detail-modal" class="modal-overlay hidden">
+        <div class="modal-container">
+            <div class="modal-sidebar">
+                <div class="sidebar-green-stripe"></div>
+                <div class="sidebar-content">
+                    <button class="modal-back-btn" id="modal-back-btn">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <h2 class="modal-title" id="modal-title">Breakdown Detail</h2>
+                <div class="modal-table-wrapper" id="modal-table-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Context Menu -->
+    <div id="context-menu" class="context-menu hidden">
+        <div class="context-menu-item" id="drill-through-option">
+            <i class="fas fa-table"></i> Drill through &rarr; Breakdown Table
+        </div>
+    </div>
+
+    <script src="app.js?v=15"></script>
+</body>
+</html>

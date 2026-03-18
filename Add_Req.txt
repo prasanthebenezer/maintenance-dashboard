@@ -1,0 +1,6 @@
+1. Adjust the date filter with start date and end date selection. Add a calendar to select date 
+2. Use attached ARASCO white logo after removing the background
+3. Spare parts cost widget in line 1 and line 3 are not working when using All(Overall) for some months
+4. Add additional Line ID filter to the filters section. The relationship between Plant ID > Line ID can be found in the ARASCO Dashboard Data.xlsx file.
+4. Remove the unused icons on the side panel
+5. Test all data again.

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+dashboard.db
+dashboard.db-wal
+dashboard.db-shm
+ARASCO Dashboard Data.xlsx
+.claude/

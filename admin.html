@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARASCO Admin - Data Management</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-grid.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/styles/ag-theme-alpine.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="admin.css?v=2">
+</head>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-green-stripe"></div>
+        <div class="sidebar-content">
+            <div class="sidebar-logo">
+                <img src="ARASCO.png" class="logo-img" alt="ARASCO Logo">
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/index.html"><i class="fas fa-chart-bar"></i> Dashboard</a>
+                <a href="/admin" class="active"><i class="fas fa-database"></i> Admin</a>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <!-- Header -->
+        <header class="admin-header">
+            <h1>Data Administration</h1>
+            <a href="/index.html" class="back-link"><i class="fas fa-chart-bar"></i> Back to Dashboard</a>
+        </header>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab active" data-table="line-performance">Line Performance</button>
+            <button class="tab" data-table="breakdown">Breakdown</button>
+            <button class="tab" data-table="spare-parts">Spare Parts Cost</button>
+            <button class="tab" data-table="site-maintenance">Site Maintenance</button>
+            <button class="tab" data-table="rca">RCA</button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="admin-toolbar">
+            <button id="btn-add-row" title="Add new row"><i class="fas fa-plus"></i> Add Row</button>
+            <button id="btn-delete-selected" title="Delete selected rows"><i class="fas fa-trash"></i> Delete Selected</button>
+            <button id="btn-save" title="Save all changes"><i class="fas fa-save"></i> Save Changes</button>
+            <span class="separator"></span>
+            <button id="btn-upload" title="Upload Excel file"><i class="fas fa-file-excel"></i> Upload Excel</button>
+            <select id="upload-mode">
+                <option value="replace">Replace All Data</option>
+                <option value="append">Append to Existing</option>
+            </select>
+            <input type="file" id="excel-file" accept=".xlsx,.xls" hidden>
+            <span class="status-msg" id="status-msg"></span>
+            <span class="row-count" id="row-count"></span>
+        </div>
+
+        <!-- AG Grid -->
+        <div id="grid-container" class="ag-theme-alpine"></div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="loading-spinner" id="loading-text">Loading...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@32.3.3/dist/ag-grid-community.min.noStyle.js"></script>
+    <script src="admin.js?v=3"></script>
+</body>
+</html>
